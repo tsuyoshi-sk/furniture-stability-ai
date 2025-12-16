@@ -1,21 +1,30 @@
-# Furniture Stability AI
+# Furniture Stability & Load Capacity AI
 
-3D家具モデルの安定性を予測する深層学習システム
+3D家具モデルの安定性と耐荷重を予測するAIシステム
 
 ## Overview
 
-点群データから家具の物理的安定性（転倒しにくさ）を判定するAIモデルです。
+点群データから家具の物理的特性を判定するAIモデルです。
 
+### 安定性予測
 - **精度**: 97.9%
 - **対応家具**: 8種類 (chair, table, shelf, cabinet, desk, sofa, stool, bench)
 - **学習データ**: 11,396サンプル
+
+### 耐荷重予測
+- **精度**: 98.5%（材質指定時）
+- **対応**: 棚板の静荷重・動荷重
+- **材質**: 8種類対応
 
 ## Features
 
 - PointNet + Local Features アーキテクチャ
 - Test-Time Augmentation (TTA) による高精度推論
 - 物理特徴（重心位置、底面積、アスペクト比）の解析
+- 梁理論に基づく耐荷重計算
+- 動荷重対応（衝撃係数2.0）
 - 3D可視化ツール
+- 対話式材質選択UI
 
 ## Installation
 
@@ -30,7 +39,50 @@ pip install torch numpy matplotlib
 
 ## Usage
 
-### Inference (推論)
+### Unified Analysis (統合解析)
+
+```bash
+# Interactive mode (材質選択UI付き)
+python3 furniture_analyzer.py shelf.obj
+
+# With material specified
+python3 furniture_analyzer.py shelf.obj --material plywood
+
+# List available materials
+python3 furniture_analyzer.py --list-materials
+```
+
+**Output example:**
+```
+============================================================
+解析結果
+============================================================
+
+ファイル: shelf_board.obj
+材質: 合板
+
+------------------------------------------------------------
+【安定性】
+------------------------------------------------------------
+  判定: ✓ 安定
+  信頼度: 97.0%
+  家具タイプ: shelf
+
+------------------------------------------------------------
+【耐荷重】
+------------------------------------------------------------
+  静荷重上限: 30.7 kg
+  動荷重上限: 15.3 kg
+  安全率: 2.5
+  信頼度: 100%
+
+------------------------------------------------------------
+【推奨事項】
+------------------------------------------------------------
+  △ 一般的な書籍程度まで対応可能です。
+```
+
+### Stability Inference (安定性予測)
 
 ```bash
 # Single file
@@ -39,24 +91,21 @@ python3 inference.py model.obj
 # Multiple files
 python3 inference.py file1.obj file2.obj file3.obj
 
-# Directory
-python3 inference.py ./models/
-
 # Evaluate all types
 python3 inference.py --evaluate
-
-# Save to JSON
-python3 inference.py model.obj -o result.json
 ```
 
-**Output example:**
-```
-予測結果:
-  ファイル: chair_001.obj
-  家具タイプ: chair
-  予測: stable (94.7% stable)
-  信頼度: 94.7%
-  物理スコア: 1.37/2.5
+### Load Capacity (耐荷重予測)
+
+```bash
+# With material
+python3 load_capacity.py shelf.obj --material oak
+
+# List materials
+python3 load_capacity.py --list-materials
+
+# With custom safety factor
+python3 load_capacity.py shelf.obj -m plywood --safety-factor 3.0
 ```
 
 ### Visualization (可視化)
@@ -68,40 +117,44 @@ python3 visualize.py model.obj
 # Compare multiple files
 python3 visualize.py stable.obj unstable.obj --compare
 
-# Save image
-python3 visualize.py model.obj --save output.png
-
 # Generate gallery for all furniture types
 python3 visualize.py --gallery
 ```
 
-### Training (学習)
+## Supported Materials
 
-```bash
-# Generate dataset
-python3 generate_furniture.py --num 500
-
-# Train model
-python3 train_augmented.py
-```
+| # | Material | Japanese | E (MPa) | Strength | Typical Use |
+|---|----------|----------|---------|----------|-------------|
+| 1 | pine | パイン材 | 10,000 | Medium | DIY furniture |
+| 2 | oak | オーク材 | 12,000 | High | Premium furniture |
+| 3 | plywood | 合板 | 8,000 | Medium | General shelves |
+| 4 | mdf | MDF | 3,500 | Low-Med | Color boxes |
+| 5 | particle_board | パーティクルボード | 2,500 | Low | Budget furniture |
+| 6 | steel | スチール | 200,000 | Very High | Metal racks |
+| 7 | aluminum | アルミニウム | 70,000 | High | Outdoor furniture |
+| 8 | plastic_abs | ABS樹脂 | 2,300 | Low-Med | Plastic furniture |
 
 ## Project Structure
 
 ```
 furniture-stability-ai/
-├── inference.py          # Inference script
-├── visualize.py          # 3D visualization tool
-├── train_augmented.py    # Training with augmentation
-├── generate_furniture.py # Dataset generation
-├── models_augmented/     # Trained models
+├── furniture_analyzer.py  # Unified analysis tool
+├── inference.py           # Stability inference
+├── load_capacity.py       # Load capacity prediction
+├── visualize.py           # 3D visualization
+├── train_augmented.py     # Training script
+├── generate_furniture.py  # Dataset generation
+├── generate_shelf_boards.py # Shelf board generation
+├── models_augmented/      # Trained models
 │   └── local_augmented_best.pth
-├── dataset/              # Training data
-│   ├── stable/           # Stable furniture OBJs
-│   └── unstable/         # Unstable furniture OBJs
-└── visualizations/       # Generated gallery images
+├── dataset/               # Stability training data
+├── dataset_load/          # Load capacity test data
+└── visualizations/        # Generated images
 ```
 
 ## Model Performance
+
+### Stability Prediction
 
 | Furniture Type | Stable | Unstable | Total |
 |----------------|--------|----------|-------|
@@ -115,6 +168,13 @@ furniture-stability-ai/
 | bench          | 100%   | 100%     | 100%  |
 | **Overall**    |        |          | **97.9%** |
 
+### Load Capacity Prediction
+
+| Condition | Mean Error | Within 5% |
+|-----------|------------|-----------|
+| With correct material | 0.25% | 98.5% |
+| Auto-estimated material | 44% | 34.5% |
+
 ## Visualization Examples
 
 ### Single File View
@@ -125,7 +185,7 @@ furniture-stability-ai/
 
 ## Technical Details
 
-### Architecture
+### Stability Model Architecture
 - **Encoder**: PointNet with Local Features (512-dim)
 - **Classifier**: 3-layer MLP with BatchNorm and Dropout
 - **Input**: 1024 sampled points from OBJ mesh
@@ -137,11 +197,35 @@ furniture-stability-ai/
 - Optimizer: AdamW with Cosine Annealing
 - Early Stopping: patience=30
 
+### Load Capacity Calculation
+- **Theory**: Euler-Bernoulli beam theory
+- **Limits**: Stress limit AND deflection limit (L/200)
+- **Dynamic Factor**: 2.0x for impact loads
+- **Safety Factor**: 2.5 (default)
+
 ### Physics Features
 - **CoG Height**: Center of gravity relative height (0=bottom, 1=top)
 - **Base Area**: Support polygon area
 - **Aspect Ratio**: Height / Base width
 - **CoG over Base**: Whether CoG projects within base
+- **Moment of Inertia**: I = bh³/12
+- **Section Modulus**: S = bh²/6
+
+## API Usage (Python)
+
+```python
+from furniture_analyzer import analyze_furniture
+
+# Analyze with material
+results = analyze_furniture(
+    "shelf.obj",
+    material="plywood",
+    interactive=False
+)
+
+print(f"Stability: {results['stability']['prediction']}")
+print(f"Max Load: {results['load_capacity']['max_dynamic_load_kg']:.1f} kg")
+```
 
 ## License
 
