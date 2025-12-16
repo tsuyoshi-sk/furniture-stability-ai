@@ -335,34 +335,109 @@ def calculate_load_capacity(
 
 
 # =============================================================================
-# Material Estimation
+# Material Estimation (Improved with probability distribution)
 # =============================================================================
+
+# Thickness-based material probability rules
+# Based on real-world furniture manufacturing standards
+THICKNESS_MATERIAL_PROBS = {
+    # (min_mm, max_mm): [(material_key, probability), ...]
+    (0, 12): [('plywood', 0.60), ('mdf', 0.25), ('particle_board', 0.15)],
+    (12, 16): [('plywood', 0.40), ('mdf', 0.35), ('particle_board', 0.25)],
+    (16, 20): [('mdf', 0.30), ('plywood', 0.30), ('particle_board', 0.20), ('pine', 0.20)],
+    (20, 26): [('pine', 0.30), ('plywood', 0.25), ('oak', 0.25), ('mdf', 0.20)],
+    (26, 40): [('oak', 0.40), ('pine', 0.35), ('plywood', 0.25)],
+}
+
 
 def estimate_material(geometry: ShelfGeometry) -> str:
     """
-    Estimate material based on geometry
+    Estimate most likely material based on geometry
     This is a heuristic - actual material should be specified when possible
     """
     thickness = geometry.thickness
-    span = geometry.span_length
 
-    # Thin and long -> likely plywood or metal
-    if thickness < 15 and span > 500:
-        return 'plywood'
+    # Find matching thickness range
+    for (min_t, max_t), probs in THICKNESS_MATERIAL_PROBS.items():
+        if min_t <= thickness < max_t:
+            # Return most likely material
+            return max(probs, key=lambda x: x[1])[0]
 
-    # Very thin -> metal or plastic
+    # Default for extreme values
     if thickness < 5:
         return 'steel'
+    return 'oak'
 
-    # Medium thickness -> solid wood or MDF
-    if 15 <= thickness <= 25:
-        return 'mdf'
 
-    # Thick -> solid wood
-    if thickness > 25:
-        return 'pine'
+def estimate_material_distribution(geometry: ShelfGeometry) -> List[Tuple[str, float]]:
+    """
+    Get probability distribution of likely materials based on thickness
 
-    return DEFAULT_MATERIAL
+    Returns: List of (material_key, probability) sorted by probability desc
+    """
+    thickness = geometry.thickness
+
+    for (min_t, max_t), probs in THICKNESS_MATERIAL_PROBS.items():
+        if min_t <= thickness < max_t:
+            return sorted(probs, key=lambda x: -x[1])
+
+    # Default
+    if thickness < 5:
+        return [('steel', 0.8), ('aluminum', 0.2)]
+    return [('oak', 0.5), ('pine', 0.5)]
+
+
+def calculate_load_range(geometry: ShelfGeometry,
+                         safety_factor: float = 2.5,
+                         dynamic_factor: float = 2.0) -> Dict:
+    """
+    Calculate load capacity range for all likely materials
+
+    Returns dict with:
+    - predicted: weighted average
+    - min: conservative (lowest capacity material)
+    - max: optimistic (highest capacity material)
+    - by_material: dict of material -> capacity
+    """
+    material_probs = estimate_material_distribution(geometry)
+
+    capacities = {}
+    for mat_key, prob in material_probs:
+        if mat_key in MATERIALS:
+            mat = MATERIALS[mat_key]
+            result = calculate_load_capacity(
+                geometry, mat, dynamic_factor, 1/200, safety_factor
+            )
+            capacities[mat_key] = {
+                'prob': prob,
+                'static': result.max_static_load,
+                'dynamic': result.max_dynamic_load,
+            }
+
+    if not capacities:
+        return {'predicted': 0, 'min': 0, 'max': 0, 'by_material': {}}
+
+    # Weighted average
+    total_prob = sum(c['prob'] for c in capacities.values())
+    predicted_static = sum(c['prob'] * c['static'] for c in capacities.values()) / total_prob
+    predicted_dynamic = sum(c['prob'] * c['dynamic'] for c in capacities.values()) / total_prob
+
+    # Min/Max
+    min_static = min(c['static'] for c in capacities.values())
+    max_static = max(c['static'] for c in capacities.values())
+    min_dynamic = min(c['dynamic'] for c in capacities.values())
+    max_dynamic = max(c['dynamic'] for c in capacities.values())
+
+    return {
+        'predicted_static': predicted_static,
+        'predicted_dynamic': predicted_dynamic,
+        'min_static': min_static,
+        'max_static': max_static,
+        'min_dynamic': min_dynamic,
+        'max_dynamic': max_dynamic,
+        'by_material': capacities,
+        'uncertainty_ratio': max_static / min_static if min_static > 0 else float('inf'),
+    }
 
 
 # =============================================================================

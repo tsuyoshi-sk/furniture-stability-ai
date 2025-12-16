@@ -17,7 +17,8 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from inference import FurnitureStabilityPredictor
 from load_capacity import (
     LoadCapacityPredictor, MATERIALS, LoadCapacityResult,
-    analyze_shelf_geometry, load_obj_vertices, load_obj_faces, format_result
+    analyze_shelf_geometry, load_obj_vertices, load_obj_faces, format_result,
+    calculate_load_range, estimate_material_distribution
 )
 
 
@@ -178,6 +179,15 @@ def analyze_furniture(obj_path: Path, material: Optional[str] = None,
     try:
         load_predictor = LoadCapacityPredictor()
         load_result = load_predictor.predict(obj_path, material=material)
+
+        # Calculate range if no material specified
+        load_range = None
+        if material is None:
+            vertices = load_obj_vertices(obj_path)
+            faces = load_obj_faces(obj_path)
+            geometry = analyze_shelf_geometry(vertices, faces)
+            load_range = calculate_load_range(geometry)
+
         results['load_capacity'] = {
             'max_static_load_kg': load_result.max_static_load,
             'max_dynamic_load_kg': load_result.max_dynamic_load,
@@ -192,7 +202,20 @@ def analyze_furniture(obj_path: Path, material: Optional[str] = None,
                 'is_shelf_board': load_result.geometry.is_shelf_board,
             },
             'warnings': load_result.warnings,
+            'material_specified': material is not None,
         }
+
+        # Add range info if no material specified
+        if load_range:
+            results['load_capacity']['range'] = {
+                'min_static_kg': load_range['min_static'],
+                'max_static_kg': load_range['max_static'],
+                'min_dynamic_kg': load_range['min_dynamic'],
+                'max_dynamic_kg': load_range['max_dynamic'],
+                'uncertainty_ratio': load_range['uncertainty_ratio'],
+                'by_material': load_range['by_material'],
+            }
+
     except Exception as e:
         results['load_capacity'] = {'error': str(e)}
 
@@ -254,11 +277,43 @@ def print_results(results: Dict):
         static_load = load.get('max_static_load_kg', 0)
         dynamic_load = load.get('max_dynamic_load_kg', 0)
         confidence = load.get('confidence', 0) * 100
+        material_specified = load.get('material_specified', False)
 
-        print(f"  静荷重上限: {static_load:.1f} kg")
-        print(f"  動荷重上限: {dynamic_load:.1f} kg")
+        if material_specified:
+            # 材質指定あり - 高精度
+            print(f"  静荷重上限: {static_load:.1f} kg")
+            print(f"  動荷重上限: {dynamic_load:.1f} kg")
+            print(f"  安全率: {load.get('safety_factor', 0)}")
+            print(f"  信頼度: \033[92m{confidence:.0f}%\033[0m (材質指定)")
+        else:
+            # 材質推定 - 範囲表示
+            load_range = load.get('range', {})
+            if load_range:
+                uncertainty = load_range.get('uncertainty_ratio', 1)
+                print(f"  静荷重上限: {static_load:.1f} kg (推定)")
+                print(f"  動荷重上限: {dynamic_load:.1f} kg (推定)")
+                print(f"\n  \033[93m材質不明のため範囲表示:\033[0m")
+                print(f"    最小: {load_range.get('min_dynamic_kg', 0):.1f} kg")
+                print(f"    最大: {load_range.get('max_dynamic_kg', 0):.1f} kg")
+                print(f"    不確実性: {uncertainty:.1f}倍")
+
+                by_material = load_range.get('by_material', {})
+                if by_material:
+                    print(f"\n  材質別推定:")
+                    for mat_key, data in sorted(by_material.items(),
+                                                 key=lambda x: -x[1].get('prob', 0)):
+                        mat_info = MATERIAL_INFO.get(mat_key, {})
+                        mat_name = mat_info.get('ja', mat_key)
+                        prob = data.get('prob', 0) * 100
+                        dyn = data.get('dynamic', 0)
+                        print(f"    {mat_name}: {dyn:.1f} kg ({prob:.0f}%)")
+            else:
+                print(f"  静荷重上限: {static_load:.1f} kg")
+                print(f"  動荷重上限: {dynamic_load:.1f} kg")
+
+            print(f"\n  \033[93m※材質を指定すると精度が大幅に向上します\033[0m")
+
         print(f"  安全率: {load.get('safety_factor', 0)}")
-        print(f"  信頼度: {confidence:.0f}%")
 
         geo = load.get('geometry', {})
         if geo:
