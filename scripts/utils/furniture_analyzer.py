@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Optional, Dict
 
 SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent
 sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(SCRIPT_DIR.parent / "inference"))
 
 from inference import FurnitureStabilityPredictor
 from load_capacity import (
