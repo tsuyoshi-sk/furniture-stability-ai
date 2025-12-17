@@ -43,13 +43,13 @@ pip install torch numpy matplotlib
 
 ```bash
 # Interactive mode (材質選択UI付き)
-python3 furniture_analyzer.py shelf.obj
+python3 scripts/utils/furniture_analyzer.py shelf.obj
 
 # With material specified
-python3 furniture_analyzer.py shelf.obj --material plywood
+python3 scripts/utils/furniture_analyzer.py shelf.obj --material plywood
 
 # List available materials
-python3 furniture_analyzer.py --list-materials
+python3 scripts/utils/furniture_analyzer.py --list-materials
 ```
 
 **Output example:**
@@ -86,39 +86,39 @@ python3 furniture_analyzer.py --list-materials
 
 ```bash
 # Single file
-python3 inference.py model.obj
+python3 scripts/inference/inference.py model.obj
 
 # Multiple files
-python3 inference.py file1.obj file2.obj file3.obj
+python3 scripts/inference/inference.py file1.obj file2.obj file3.obj
 
 # Evaluate all types
-python3 inference.py --evaluate
+python3 scripts/inference/inference.py --evaluate
 ```
 
 ### Load Capacity (耐荷重予測)
 
 ```bash
 # With material
-python3 load_capacity.py shelf.obj --material oak
+python3 scripts/utils/load_capacity.py shelf.obj --material oak
 
 # List materials
-python3 load_capacity.py --list-materials
+python3 scripts/utils/load_capacity.py --list-materials
 
 # With custom safety factor
-python3 load_capacity.py shelf.obj -m plywood --safety-factor 3.0
+python3 scripts/utils/load_capacity.py shelf.obj -m plywood --safety-factor 3.0
 ```
 
 ### Visualization (可視化)
 
 ```bash
 # Single file with details
-python3 visualize.py model.obj
+python3 scripts/utils/visualize.py model.obj
 
 # Compare multiple files
-python3 visualize.py stable.obj unstable.obj --compare
+python3 scripts/utils/visualize.py stable.obj unstable.obj --compare
 
 # Generate gallery for all furniture types
-python3 visualize.py --gallery
+python3 scripts/utils/visualize.py --gallery
 ```
 
 ## Supported Materials
@@ -138,18 +138,37 @@ python3 visualize.py --gallery
 
 ```
 furniture-stability-ai/
-├── furniture_analyzer.py  # Unified analysis tool
-├── inference.py           # Stability inference
-├── load_capacity.py       # Load capacity prediction
-├── visualize.py           # 3D visualization
-├── train_augmented.py     # Training script
-├── generate_furniture.py  # Dataset generation
-├── generate_shelf_boards.py # Shelf board generation
-├── models_augmented/      # Trained models
-│   └── local_augmented_best.pth
-├── dataset/               # Stability training data
-├── dataset_load/          # Load capacity test data
-└── visualizations/        # Generated images
+├── scripts/
+│   ├── training/                    # Training scripts
+│   │   ├── train_augmented.py       # Data augmentation training
+│   │   ├── train_unified.py         # Unified model training
+│   │   ├── train_ensemble*.py       # Ensemble models
+│   │   ├── train_load_capacity*.py  # Load capacity models
+│   │   └── train_point*.py          # PointNet2/Transformer
+│   ├── inference/                   # Inference scripts
+│   │   ├── inference.py             # Basic inference
+│   │   ├── inference_ensemble.py    # Ensemble inference
+│   │   └── predict_*.py             # Prediction utilities
+│   └── utils/                       # Utility scripts
+│       ├── furniture_analyzer.py    # Unified analysis tool
+│       ├── load_capacity.py         # Load capacity prediction
+│       ├── visualize.py             # 3D visualization
+│       ├── generate_furniture.py    # Dataset generation
+│       └── bracket_database.py      # Bracket/hardware database
+├── models/                          # Trained models
+│   ├── models_augmented/            # Main stability model
+│   ├── models_unified/              # Unified model
+│   └── models_load/                 # Load capacity model
+├── data/
+│   └── datasets/                    # Training datasets
+│       ├── dataset/                 # Stability data (stable/unstable)
+│       ├── dataset_unified/         # Unified training data
+│       └── dataset_load_v2/         # Load capacity data
+├── output/                          # Generated outputs
+│   ├── visualizations/              # Generated images
+│   ├── drawings/                    # Technical drawings
+│   └── images/                      # Rendered images
+└── docs/                            # Documentation & catalogs
 ```
 
 ## Model Performance
@@ -178,10 +197,10 @@ furniture-stability-ai/
 ## Visualization Examples
 
 ### Single File View
-![Sofa Visualization](visualizations/demo_sofa.png)
+![Sofa Visualization](output/visualizations/demo_sofa.png)
 
 ### Gallery View
-![Desk Gallery](visualizations/gallery_desk.png)
+![Desk Gallery](output/visualizations/gallery_desk.png)
 
 ## Technical Details
 
@@ -214,7 +233,7 @@ furniture-stability-ai/
 ## API Usage (Python)
 
 ```python
-from furniture_analyzer import analyze_furniture
+from scripts.utils.furniture_analyzer import analyze_furniture
 
 # Analyze with material
 results = analyze_furniture(
