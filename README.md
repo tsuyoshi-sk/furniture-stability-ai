@@ -25,6 +25,9 @@
 - 動荷重対応（衝撃係数2.0）
 - 3D可視化ツール
 - 対話式材質選択UI
+- **設計改善提案システム** - 不安定な家具に対する具体的な改善案
+- **バッチ解析・レポート生成** - HTML/CSV/JSON形式でレポート出力
+- **Blenderアドオン** - Blender内で直接解析実行
 
 ## Installation
 
@@ -121,6 +124,96 @@ python3 scripts/utils/visualize.py stable.obj unstable.obj --compare
 python3 scripts/utils/visualize.py --gallery
 ```
 
+### Design Advisor (設計改善提案)
+
+不安定な家具に対して具体的な改善提案を生成します。
+
+```bash
+# 単一ファイル解析
+python3 scripts/utils/design_advisor.py chair.obj
+
+# 複数ファイルをバッチ処理
+python3 scripts/utils/design_advisor.py *.obj --batch
+
+# 不安定なもののみ表示
+python3 scripts/utils/design_advisor.py *.obj --batch --unstable-only
+
+# JSON出力
+python3 scripts/utils/design_advisor.py chair.obj --output report.json
+```
+
+**Output example:**
+```
+======================================================================
+  設計分析レポート
+======================================================================
+
+ファイル: chair.obj
+家具タイプ: chair
+
+【現在の状態】
+  判定: ✗ 不安定
+  信頼度: 95.2%
+  安定性スコア: 1.10 / 2.5
+
+【検出された問題】
+  1. 底面積が小さい
+  2. 重心位置がやや高い
+
+----------------------------------------------------------------------
+  改善提案
+----------------------------------------------------------------------
+
+  [1] 脚の間隔を広げる ★★★
+      問題: 底面積が小さい
+      対策: 脚間隔を50mm広げる
+      期待効果: 54%向上
+
+  [2] 重心位置を下げる ★★
+      問題: 重心位置がやや高い
+      対策: 上部を軽量化するか、下部に重量を追加
+      期待効果: 11%向上
+```
+
+### Batch Analyzer (バッチ解析・レポート生成)
+
+複数ファイルを一括解析し、HTML/CSV/JSONレポートを生成します。
+
+```bash
+# 基本的な使用法
+python3 scripts/utils/batch_analyzer.py data/*.obj --output report
+
+# 上限を指定
+python3 scripts/utils/batch_analyzer.py *.obj --limit 100
+
+# 出力形式を指定
+python3 scripts/utils/batch_analyzer.py *.obj --format html,csv
+
+# 静かモード
+python3 scripts/utils/batch_analyzer.py *.obj --quiet
+```
+
+生成されるレポート:
+- `report.html` - ブラウザで閲覧可能なインタラクティブレポート
+- `report.csv` - Excel等で開けるCSVファイル
+- `report.json` - プログラムから利用可能なJSONデータ
+
+### Blender Addon
+
+Blender内で直接家具の安定性解析を実行できます。
+
+**インストール:**
+1. Blender → Edit → Preferences → Add-ons
+2. "Install..." → `scripts/blender/furniture_stability_addon.py` を選択
+3. "Furniture Stability Analyzer" を有効化
+
+**使用方法:**
+1. 3D Viewport右側パネル（Nキー）→ "Furniture" タブ
+2. Python PathとScripts Pathを設定
+3. メッシュを選択 → "Analyze Stability"
+
+詳細は `scripts/blender/README.md` を参照してください。
+
 ## Supported Materials
 
 | # | Material | Japanese | E (MPa) | Strength | Typical Use |
@@ -149,12 +242,17 @@ furniture-stability-ai/
 │   │   ├── inference.py             # Basic inference
 │   │   ├── inference_ensemble.py    # Ensemble inference
 │   │   └── predict_*.py             # Prediction utilities
-│   └── utils/                       # Utility scripts
-│       ├── furniture_analyzer.py    # Unified analysis tool
-│       ├── load_capacity.py         # Load capacity prediction
-│       ├── visualize.py             # 3D visualization
-│       ├── generate_furniture.py    # Dataset generation
-│       └── bracket_database.py      # Bracket/hardware database
+│   ├── utils/                       # Utility scripts
+│   │   ├── furniture_analyzer.py    # Unified analysis tool
+│   │   ├── design_advisor.py        # Design improvement advisor
+│   │   ├── batch_analyzer.py        # Batch analysis & reporting
+│   │   ├── load_capacity.py         # Load capacity prediction
+│   │   ├── visualize.py             # 3D visualization
+│   │   ├── generate_furniture.py    # Dataset generation
+│   │   └── bracket_database.py      # Bracket/hardware database
+│   └── blender/                     # Blender integration
+│       ├── furniture_stability_addon.py  # Blender addon
+│       └── README.md                # Addon documentation
 ├── models/                          # Trained models
 │   ├── models_augmented/            # Main stability model
 │   ├── models_unified/              # Unified model
