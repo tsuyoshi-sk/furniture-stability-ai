@@ -28,6 +28,7 @@
 - **設計改善提案システム** - 不安定な家具に対する具体的な改善案
 - **バッチ解析・レポート生成** - HTML/CSV/JSON形式でレポート出力
 - **Blenderアドオン** - Blender内で直接解析実行
+- **CAD図面生成** - OBJからSVG三面図とDXF(AutoCAD/Fusion360互換)を自動生成
 
 ## Installation
 
@@ -37,7 +38,7 @@ git clone https://github.com/tsuyoshi-sk/furniture-stability-ai.git
 cd furniture-stability-ai
 
 # Dependencies
-pip install torch numpy matplotlib
+pip install torch numpy matplotlib svgwrite ezdxf
 ```
 
 ## Usage
@@ -214,6 +215,54 @@ Blender内で直接家具の安定性解析を実行できます。
 
 詳細は `scripts/blender/README.md` を参照してください。
 
+### Drawing Generator (CAD図面生成)
+
+OBJファイルから技術図面を自動生成します。SVG三面図とCAD用DXFファイルに対応。
+
+```bash
+# OBJから図面生成（SVG + カットリスト）
+python3 scripts/utils/furniture_drawing_generator.py shelf.obj
+
+# CAD用DXF図面も生成
+python3 scripts/utils/furniture_drawing_generator.py shelf.obj --dxf
+
+# DXFのみ生成（SVGスキップ）
+python3 scripts/utils/furniture_drawing_generator.py shelf.obj --dxf-only
+
+# 手動で寸法を指定
+python3 scripts/utils/furniture_drawing_generator.py --manual --type bookshelf --width 900 --height 1800 --dxf
+
+# バッチ処理
+python3 scripts/utils/furniture_drawing_generator.py *.obj --batch --dxf
+```
+
+**生成されるファイル:**
+- `[name]_drawing.svg` - 三面図（正面・側面・上面）+ パーツリスト
+- `[name]_cutlist.json` - カットリスト（加工用データ）
+- `[name]_cad.dxf` - CAD用DXF図面（--dxf指定時）
+
+**DXFレイヤー構成:**
+
+| レイヤー | 色 | 内容 |
+|---------|-----|------|
+| OUTLINE | 白 | 外形線 |
+| DIMENSION | 赤 | 寸法線・注記 |
+| HIDDEN | グレー | 隠れ線（破線） |
+| TEXT | 白 | テキスト・ラベル |
+| PARTS | 緑 | パーツ配置図 |
+
+**対応CADソフト:**
+- AutoCAD 2010以降
+- Fusion 360
+- FreeCAD
+- その他DXF対応ソフト
+
+**OBJ自動解析機能:**
+- 寸法の自動計算（mm単位）
+- 家具タイプの自動推定（ファイル名から）
+- 棚板数の自動検出（水平面の解析）
+- 板厚の推定（標準厚18mm/24mm/30mm）
+
 ## Supported Materials
 
 | # | Material | Japanese | E (MPa) | Strength | Typical Use |
@@ -244,6 +293,7 @@ furniture-stability-ai/
 │   │   └── predict_*.py             # Prediction utilities
 │   ├── utils/                       # Utility scripts
 │   │   ├── furniture_analyzer.py    # Unified analysis tool
+│   │   ├── furniture_drawing_generator.py  # CAD drawing generator (SVG/DXF)
 │   │   ├── design_advisor.py        # Design improvement advisor
 │   │   ├── batch_analyzer.py        # Batch analysis & reporting
 │   │   ├── load_capacity.py         # Load capacity prediction
