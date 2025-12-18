@@ -209,10 +209,11 @@ class StabilityClassifier(nn.Module):
 class FurnitureStabilityPredictor:
     """家具安定性予測器"""
 
-    def __init__(self, model_path: Optional[Path] = None, device=None, threshold: float = 0.5):
+    def __init__(self, model_path: Optional[Path] = None, device=None, threshold: float = 0.5, verbose: bool = True):
         self.device = device or DEVICE
         self.model_path = model_path or MODEL_PATH
         self.threshold = threshold
+        self.verbose = verbose
         self.model = None
         self._load_model()
 
@@ -232,10 +233,11 @@ class FurnitureStabilityPredictor:
         self.model.to(self.device)
         self.model.eval()
 
-        val_acc = checkpoint.get('val_acc', 'N/A')
-        print(f"モデル読み込み完了: {self.model_path.name}")
-        print(f"  検証精度: {val_acc:.2f}%")
-        print(f"  対応家具: {', '.join(SUPPORTED_FURNITURE)}")
+        if self.verbose:
+            val_acc = checkpoint.get('val_acc', 'N/A')
+            print(f"モデル読み込み完了: {self.model_path.name}")
+            print(f"  検証精度: {val_acc:.2f}%")
+            print(f"  対応家具: {', '.join(SUPPORTED_FURNITURE)}")
 
     def predict(self, obj_path, use_tta: bool = True, num_samples: int = 3) -> Dict:
         """
